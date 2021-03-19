@@ -1,9 +1,21 @@
 package datawave.webservice.query.metric;
 
-import java.security.Principal;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Iterator;
+import datawave.annotation.DateFormat;
+import datawave.annotation.Required;
+import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
+import datawave.interceptor.RequiredInterceptor;
+import datawave.interceptor.ResponseInterceptor;
+import datawave.metrics.remote.RemoteQueryMetricService;
+import datawave.security.authorization.DatawavePrincipal;
+import datawave.webservice.common.connection.AccumuloConnectionFactory;
+import datawave.webservice.query.map.QueryGeometryHandler;
+import datawave.webservice.query.map.QueryGeometryResponse;
+import datawave.webservice.query.metric.BaseQueryMetric.PageMetric;
+import org.apache.commons.lang.time.DateUtils;
+import org.apache.deltaspike.core.api.config.ConfigProperty;
+import org.apache.deltaspike.core.api.exclude.Exclude;
+import org.apache.log4j.Logger;
+import org.jboss.resteasy.annotations.GZIP;
 
 import javax.annotation.Resource;
 import javax.annotation.security.DeclareRoles;
@@ -26,22 +38,10 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-
-import datawave.annotation.DateFormat;
-import datawave.annotation.Required;
-import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
-import datawave.interceptor.RequiredInterceptor;
-import datawave.interceptor.ResponseInterceptor;
-import datawave.security.authorization.DatawavePrincipal;
-import datawave.webservice.common.connection.AccumuloConnectionFactory;
-import datawave.webservice.query.map.QueryGeometryHandler;
-import datawave.webservice.query.map.QueryGeometryResponse;
-import datawave.webservice.query.metric.BaseQueryMetric.PageMetric;
-
-import org.apache.commons.lang.time.DateUtils;
-import org.apache.deltaspike.core.api.exclude.Exclude;
-import org.apache.log4j.Logger;
-import org.jboss.resteasy.annotations.GZIP;
+import java.security.Principal;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Iterator;
 
 @Path("/Query/Metrics")
 @Produces({"application/xml", "text/xml", "application/json", "text/yaml", "text/x-yaml", "application/x-yaml", "text/html"})
@@ -68,6 +68,11 @@ public class QueryMetricsBean {
     private QueryMetricHandler<? extends BaseQueryMetric> queryHandler;
     @Inject
     private QueryGeometryHandler queryGeometryHandler;
+    @Inject
+    @ConfigProperty(name = "dw.remoteQueryMetricService.enabled", defaultValue = "false")
+    private boolean useRemoteService;
+    @Inject
+    private RemoteQueryMetricService remoteQueryMetricService;
     
     /*
      * @PermitAll is necessary because this method is called indirectly from the @PreDestroy method of the QueryExpirationBean and the QueryExpirationBean's
@@ -114,16 +119,19 @@ public class QueryMetricsBean {
     @Path("/id/{id}")
     @Interceptors({RequiredInterceptor.class, ResponseInterceptor.class})
     public BaseQueryMetricListResponse query(@PathParam("id") @Required("id") String id) {
-        
-        // Find out who/what called this method
-        DatawavePrincipal dp = null;
-        Principal p = ctx.getCallerPrincipal();
-        String user = p.getName();
-        if (p instanceof DatawavePrincipal) {
-            dp = (DatawavePrincipal) p;
-            user = dp.getShortName();
+        if (useRemoteService) {
+            return remoteQueryMetricService.id(id);
+        } else {
+            // Find out who/what called this method
+            DatawavePrincipal dp = null;
+            Principal p = ctx.getCallerPrincipal();
+            String user = p.getName();
+            if (p instanceof DatawavePrincipal) {
+                dp = (DatawavePrincipal) p;
+                user = dp.getShortName();
+            }
+            return queryHandler.query(user, id, dp);
         }
-        return queryHandler.query(user, id, dp);
     }
     
     @GET
