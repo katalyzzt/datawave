@@ -9,8 +9,9 @@ import datawave.configuration.RefreshableScope;
 import datawave.security.authorization.DatawavePrincipal;
 import datawave.security.system.CallerPrincipal;
 import datawave.webservice.common.remote.RemoteHttpService;
-import datawave.webservice.query.metric.BaseQueryMetric;
-import datawave.webservice.query.metric.BaseQueryMetricListResponse;
+import datawave.microservice.querymetric.BaseQueryMetric;
+import datawave.microservice.querymetric.BaseQueryMetricListResponse;
+import datawave.webservice.query.map.QueryGeometryResponse;
 import datawave.webservice.result.VoidResponse;
 import org.apache.deltaspike.core.api.config.ConfigProperty;
 import org.apache.http.HttpEntity;
@@ -45,9 +46,11 @@ public class RemoteQueryMetricService extends RemoteHttpService {
     private static final String UPDATE_METRIC_SUFFIX = "updateMetric";
     private static final String UPDATE_METRICS_SUFFIX = "updateMetrics";
     private static final String ID_METRIC_SUFFIX = "id/%s";
+    private static final String MAP_METRIC_SUFFIX = "id/map/%s";
     private static final String AUTH_HEADER_NAME = "Authorization";
     private ObjectReader voidResponseReader;
     private ObjectReader baseQueryMetricListResponseReader;
+    private ObjectReader queryGeometryResponseReader;
     
     @Inject
     @ConfigProperty(name = "dw.remoteQueryMetricService.useSrvDnsLookup", defaultValue = "false")
@@ -111,6 +114,7 @@ public class RemoteQueryMetricService extends RemoteHttpService {
         super.init();
         voidResponseReader = objectMapper.readerFor(VoidResponse.class);
         baseQueryMetricListResponseReader = objectMapper.readerFor(BaseQueryMetricListResponse.class);
+        queryGeometryResponseReader = objectMapper.readerFor(QueryGeometryResponse.class);
     }
     
     @Timed(name = "dw.remoteQueryMetricService.updateMetric", absolute = true)
@@ -151,6 +155,21 @@ public class RemoteQueryMetricService extends RemoteHttpService {
                         },
                         entity -> baseQueryMetricListResponseReader.readValue(entity.getContent()),
                         () -> suffix);
+        // @formatter:on
+    }
+    
+    public QueryGeometryResponse map(String queryId) {
+        String suffix = String.format(MAP_METRIC_SUFFIX, queryId);
+        // @formatter:off
+        return executeGetMethodWithRuntimeException(
+                suffix,
+                uriBuilder -> {},
+                httpGet -> {
+                    httpGet.setHeader(AUTH_HEADER_NAME, getBearer());
+                    httpGet.setHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
+                },
+                entity -> queryGeometryResponseReader.readValue(entity.getContent()),
+                () -> suffix);
         // @formatter:on
     }
     

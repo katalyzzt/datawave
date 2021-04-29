@@ -1,18 +1,15 @@
 package datawave.webservice.query.metric;
 
-import datawave.annotation.DateFormat;
 import datawave.annotation.Required;
 import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
 import datawave.interceptor.RequiredInterceptor;
 import datawave.interceptor.ResponseInterceptor;
 import datawave.metrics.remote.RemoteQueryMetricService;
+import datawave.microservice.querymetric.BaseQueryMetric;
+import datawave.microservice.querymetric.BaseQueryMetricListResponse;
 import datawave.security.authorization.DatawavePrincipal;
-import datawave.webservice.common.connection.AccumuloConnectionFactory;
-import datawave.webservice.query.map.QueryGeometryHandler;
 import datawave.webservice.query.map.QueryGeometryResponse;
-import datawave.webservice.query.metric.BaseQueryMetric.PageMetric;
-import org.apache.commons.lang.time.DateUtils;
-import org.apache.deltaspike.core.api.config.ConfigProperty;
+import datawave.microservice.querymetric.BaseQueryMetric.PageMetric;
 import org.apache.deltaspike.core.api.exclude.Exclude;
 import org.apache.log4j.Logger;
 import org.jboss.resteasy.annotations.GZIP;
@@ -37,9 +34,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import java.security.Principal;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 
@@ -57,20 +52,11 @@ public class QueryMetricsBean {
     
     private static final Logger log = Logger.getLogger(QueryMetricsBean.class);
     @Inject
-    private AccumuloConnectionFactory connectionFactory;
-    @Inject
     private JMSContext jmsContext;
     @Resource(mappedName = "java:/queue/QueryMetrics")
     private Destination dest;
     @Resource
     private EJBContext ctx;
-    @Inject
-    private QueryMetricHandler<? extends BaseQueryMetric> queryHandler;
-    @Inject
-    private QueryGeometryHandler queryGeometryHandler;
-    @Inject
-    @ConfigProperty(name = "dw.remoteQueryMetricService.enabled", defaultValue = "false")
-    private boolean useRemoteService;
     @Inject
     private RemoteQueryMetricService remoteQueryMetricService;
     
@@ -119,19 +105,7 @@ public class QueryMetricsBean {
     @Path("/id/{id}")
     @Interceptors({RequiredInterceptor.class, ResponseInterceptor.class})
     public BaseQueryMetricListResponse query(@PathParam("id") @Required("id") String id) {
-        if (useRemoteService) {
-            return remoteQueryMetricService.id(id);
-        } else {
-            // Find out who/what called this method
-            DatawavePrincipal dp = null;
-            Principal p = ctx.getCallerPrincipal();
-            String user = p.getName();
-            if (p instanceof DatawavePrincipal) {
-                dp = (DatawavePrincipal) p;
-                user = dp.getShortName();
-            }
-            return queryHandler.query(user, id, dp);
-        }
+        return remoteQueryMetricService.id(id);
     }
     
     @GET
@@ -139,133 +113,7 @@ public class QueryMetricsBean {
     @Path("/id/{id}/map")
     @Interceptors({RequiredInterceptor.class, ResponseInterceptor.class})
     public QueryGeometryResponse map(@PathParam("id") @Required("id") String id) {
-        
-        // Find out who/what called this method
-        DatawavePrincipal dp = null;
-        Principal p = ctx.getCallerPrincipal();
-        String user = p.getName();
-        if (p instanceof DatawavePrincipal) {
-            dp = (DatawavePrincipal) p;
-            user = dp.getShortName();
-        }
-        
-        return queryGeometryHandler.getQueryGeometryResponse(id, queryHandler.query(user, id, dp).getResult());
-    }
-    
-    /**
-     *
-     * Returns a summary of the query metrics
-     *
-     * @param begin
-     *            (optional)
-     * @param end
-     *            (optional)
-     *
-     * @return datawave.webservice.result.QueryMetricsSummaryResponse
-     *
-     * @RequestHeader X-ProxiedEntitiesChain use when proxying request for user, by specifying a chain of DNs of the identities to proxy
-     * @RequestHeader X-ProxiedIssuersChain required when using X-ProxiedEntitiesChain, specify one issuer DN per subject DN listed in X-ProxiedEntitiesChain
-     * @HTTP 200 success
-     * @HTTP 500 internal server error
-     */
-    @GET
-    @Path("/summaryCounts")
-    @Interceptors(ResponseInterceptor.class)
-    public QueryMetricsSummaryHtmlResponse getTotalQueriesSummary(@QueryParam("begin") @DateFormat(defaultTime = "000000", defaultMillisec = "000") Date begin,
-                    @QueryParam("end") @DateFormat(defaultTime = "235959", defaultMillisec = "999") Date end) {
-        
-        if (null == begin) {
-            // midnight of the current day
-            begin = DateUtils.truncate(Calendar.getInstance(DateUtils.UTC_TIME_ZONE), Calendar.DATE).getTime();
-        } else {
-            begin = DateUtils.truncate(begin, Calendar.SECOND);
-        }
-        if (null == end) {
-            end = new Date();
-        } else {
-            end = DateUtils.truncate(end, Calendar.SECOND);
-        }
-        DatawavePrincipal dp = getPrincipal();
-        return queryHandler.getTotalQueriesSummary(begin, end, dp);
-    }
-    
-    /**
-     *
-     * Returns a summary of the query metrics
-     *
-     * @param begin
-     *            (optional)
-     * @param end
-     *            (optional)
-     *
-     * @return datawave.webservice.result.QueryMetricsSummaryResponse
-     *
-     * @RequestHeader X-ProxiedEntitiesChain use when proxying request for user, by specifying a chain of DNs of the identities to proxy
-     * @RequestHeader X-ProxiedIssuersChain required when using X-ProxiedEntitiesChain, specify one issuer DN per subject DN listed in X-ProxiedEntitiesChain
-     * @HTTP 200 success
-     * @HTTP 500 internal server error
-     */
-    @GET
-    @Path("/summary")
-    @Interceptors(ResponseInterceptor.class)
-    public QueryMetricsSummaryResponse getTotalQueriesSummaryCounts(
-                    @QueryParam("begin") @DateFormat(defaultTime = "000000", defaultMillisec = "000") Date begin, @QueryParam("end") @DateFormat(
-                                    defaultTime = "235959", defaultMillisec = "999") Date end) {
-        
-        if (null == begin) {
-            // midnight of ninety days ago
-            Calendar ninetyDaysAgo = Calendar.getInstance(DateUtils.UTC_TIME_ZONE);
-            ninetyDaysAgo.add(Calendar.DATE, -90);
-            begin = DateUtils.truncate(ninetyDaysAgo, Calendar.DATE).getTime();
-        } else {
-            begin = DateUtils.truncate(begin, Calendar.SECOND);
-        }
-        if (null == end) {
-            end = new Date();
-        } else {
-            end = DateUtils.truncate(end, Calendar.SECOND);
-        }
-        DatawavePrincipal dp = getPrincipal();
-        return queryHandler.getTotalQueriesSummaryCounts(begin, end, dp);
-    }
-    
-    /**
-     *
-     * Returns a summary of the requesting user's query metrics
-     *
-     * @param begin
-     *            (optional)
-     * @param end
-     *            (optional)
-     *
-     * @return datawave.webservice.result.QueryMetricsSummaryResponse
-     *
-     * @RequestHeader X-ProxiedEntitiesChain use when proxying request for user, by specifying a chain of DNs of the identities to proxy
-     * @RequestHeader X-ProxiedIssuersChain required when using X-ProxiedEntitiesChain, specify one issuer DN per subject DN listed in X-ProxiedEntitiesChain
-     * @HTTP 200 success
-     * @HTTP 500 internal server error
-     */
-    @GET
-    @Path("/summaryCounts/user")
-    @Interceptors(ResponseInterceptor.class)
-    public QueryMetricsSummaryHtmlResponse getUserQueriesSummary(@QueryParam("begin") @DateFormat(defaultTime = "000000", defaultMillisec = "000") Date begin,
-                    @QueryParam("end") @DateFormat(defaultTime = "235959", defaultMillisec = "999") Date end) {
-        
-        if (null == begin) {
-            // midnight of ninety days ago
-            Calendar ninetyDaysAgo = Calendar.getInstance(DateUtils.UTC_TIME_ZONE);
-            ninetyDaysAgo.add(Calendar.DATE, -90);
-            begin = DateUtils.truncate(ninetyDaysAgo, Calendar.DATE).getTime();
-        } else {
-            begin = DateUtils.truncate(begin, Calendar.SECOND);
-        }
-        if (null == end) {
-            end = new Date();
-        } else {
-            end = DateUtils.truncate(end, Calendar.SECOND);
-        }
-        DatawavePrincipal dp = getPrincipal();
-        return queryHandler.getUserQueriesSummary(begin, end, dp);
+        return remoteQueryMetricService.map(id);
     }
     
     /**

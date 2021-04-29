@@ -25,8 +25,6 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import datawave.webservice.query.metric.BaseQueryMetric;
-import datawave.webservice.query.metric.QueryMetric;
 import datawave.webservice.query.util.OptionallyEncodedStringAdapter;
 import datawave.webservice.query.util.QueryUncaughtExceptionHandler;
 
@@ -828,22 +826,6 @@ public class QueryImpl extends Query implements Serializable, Message<QueryImpl>
             }
         }
         return p;
-    }
-    
-    public void populateMetric(BaseQueryMetric metric) {
-        QueryMetric qm = (QueryMetric) metric;
-        qm.setQueryType(this.getClass());
-        qm.setQueryId(this.getId().toString());
-        qm.setUser(this.getOwner());
-        qm.setUserDN(this.getUserDN());
-        qm.setQuery(this.getQuery());
-        qm.setQueryLogic(this.getQueryLogicName());
-        qm.setBeginDate(this.getBeginDate());
-        qm.setEndDate(this.getEndDate());
-        qm.setQueryAuthorizations(this.getQueryAuthorizations());
-        qm.setQueryName(this.getQueryName());
-        qm.setParameters(this.getParameters());
-        qm.setColumnVisibility(this.getColumnVisibility());
     }
     
     @Override

@@ -4,6 +4,7 @@ import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
 
 import datawave.metrics.remote.RemoteQueryMetricService;
 
+import datawave.microservice.querymetric.BaseQueryMetric;
 import datawave.webservice.query.exception.QueryExceptionType;
 import datawave.webservice.result.VoidResponse;
 import org.apache.deltaspike.core.api.exclude.Exclude;

@@ -2,8 +2,8 @@ package datawave.webservice.query.util;
 
 import java.util.UUID;
 
-import datawave.webservice.query.metric.QueryMetric;
-import datawave.webservice.query.metric.BaseQueryMetric.PageMetric;
+import datawave.microservice.querymetric.QueryMetric;
+import datawave.microservice.querymetric.BaseQueryMetric.PageMetric;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Value;
 import org.junit.Assert;

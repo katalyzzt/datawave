@@ -24,11 +24,11 @@ import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
 import datawave.security.authorization.DatawavePrincipal;
 import datawave.webservice.query.Query;
 import datawave.webservice.query.factory.Persister;
-import datawave.webservice.query.metric.BaseQueryMetric;
-import datawave.webservice.query.metric.BaseQueryMetric.PageMetric;
-import datawave.webservice.query.metric.QueryMetricSummary;
+import datawave.microservice.querymetric.BaseQueryMetric;
+import datawave.microservice.querymetric.BaseQueryMetric.PageMetric;
+import datawave.microservice.querymetric.QueryMetricSummary;
 import datawave.webservice.query.metric.QueryMetricsBean;
-import datawave.webservice.query.metric.QueryMetricsSummaryResponse;
+import datawave.microservice.querymetric.QueryMetricsSummaryResponse;
 import datawave.webservice.query.runner.QueryExecutorBean;
 import datawave.webservice.result.QueryImplListResponse;
 import org.apache.deltaspike.core.api.exclude.Exclude;
@@ -46,7 +46,6 @@ public class HudBean {
     
     private Gson gson = new Gson();
     private HudQuerySummaryBuilder summaryBuilder = new HudQuerySummaryBuilder();
-    private HudMetricSummaryBuilder metricSummaryBuilder = new HudMetricSummaryBuilder();
     
     @Inject
     private QueryExecutorBean queryExecutor;
@@ -115,24 +114,6 @@ public class HudBean {
         }
         
         throw new IllegalArgumentException("Principal must be of the correct type");
-    }
-    
-    @Path("/summaryall")
-    @GET
-    public String getSummaryQueryStats() throws Exception {
-        QueryMetricsSummaryResponse summaryResp = queryMetrics.getTotalQueriesSummary(null, null);
-        QueryMetricSummary hour1 = summaryResp.getHour1();
-        QueryMetricSummary hour6 = summaryResp.getHour6();
-        QueryMetricSummary hour12 = summaryResp.getHour12();
-        QueryMetricSummary day1 = summaryResp.getDay1();
-        
-        List<HudMetricSummary> metricSummaryList = new ArrayList<>();
-        metricSummaryList.add(metricSummaryBuilder.buildMetricsSummary(1L, hour1));
-        metricSummaryList.add(metricSummaryBuilder.buildMetricsSummary(6L, hour6));
-        metricSummaryList.add(metricSummaryBuilder.buildMetricsSummary(12L, hour12));
-        metricSummaryList.add(metricSummaryBuilder.buildMetricsSummary(24L, day1));
-        
-        return gson.toJson(metricSummaryList);
     }
     
     @Path("/activeusers")
