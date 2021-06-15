@@ -18,8 +18,8 @@ public class QueryMetricUtilTest {
     private String queryId = UUID.randomUUID().toString();
     private Class<?> queryType = QueryMetricUtilTest.class;
     private long setupTime = 100L;
-    private PageMetric page1 = new PageMetric(50, 150, 0, 0);
-    private PageMetric page2 = new PageMetric(25, 75, 0, 0);
+    private PageMetric page1 = new PageMetric("localhost", 50, 150, -1, -1, 0, 0, 0, -1);
+    private PageMetric page2 = new PageMetric("localhost", 25, 75, -1, -1, 0, 0, 0, -1);
     
     @Before
     public void setup() {
